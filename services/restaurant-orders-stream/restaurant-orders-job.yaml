@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: restaurant-orders-stream
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: restaurant-orders-stream
+    spec:
+      restartPolicy: Never
+      securityContext:
+        fsGroup: 10001
+      containers:
+        - name: restaurant-orders-stream
+          image: python:3.12-slim
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+          args:
+            - >-
+              python -m pip install --no-cache-dir --target /tmp/python-packages
+              -r /app/requirements.txt &&
+              PYTHONPATH=/tmp/python-packages exec python
+              /app/stream-restaurant-orders.py
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
+            - name: KAFKA_TOPIC
+              value: restaurant-orders
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          volumeMounts:
+            - name: app-files
+              mountPath: /app
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: app-files
+          configMap:
+            name: restaurant-orders-stream-files
+        - name: tmp
+          emptyDir: {}
