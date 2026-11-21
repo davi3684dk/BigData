@@ -1,0 +1,16 @@
+# The one place where integration points are defined. Every Spark job loads this as env vars.
+
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: spark-integration}
+data:
+  SPARK_MASTER_URL: "spark://spark-master-svc:7077"  # Bitnami chart master service (release name "spark")
+  HDFS_URL: "hdfs://namenode:9000" # HDFS NameNode
+  KAFKA_BOOTSTRAP: "kafka:9092" # Kafka bootstrap servers
+  KAFKA_REGISTRY_FRAMING: "true" # true = Avro in Kafka has Confluent framing (1 magic byte + 4 byte schema id)
+  ORDERS_PATH: "/topics/restaurant-*" # HDFS glob: historic orders (Avro)
+  WEATHER_HIST_PATH: "/topics/weather-historic" # HDFS path: historic weather (Avro)
+  WEATHER_TOPIC_PATTERN: "weather-forecast-.*" # Kafka topics with live forecasts
+  PREDICTIONS_TOPIC: "predictions" # Kafka topic Spark writes predictions to
+  PREDICTIONS_SCHEMA_ID: "" # Schema Registry id for predictions; empty = plain Avro, no framing
+  MODEL_DIR: "/models" # HDFS dir for trained model (relative to HDFS_URL)
