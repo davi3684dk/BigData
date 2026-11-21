@@ -12,7 +12,6 @@ spec:
           image: ${IMAGE}
           envFrom: [{configMapRef: {name: spark-integration}}]
           env: [{name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}]
-          # no `command:` on purpose: keep the image ENTRYPOINT (Bitnami's script sets up the user), only replace its CMD
           args: ["/bin/sh", "-c", 'exec spark-submit --master "$SPARK_MASTER_URL" --conf spark.driver.host=$POD_IP --conf spark.driver.bindAddress=0.0.0.0 --conf spark.driver.port=29000 --conf spark.blockManager.port=29001 --conf spark.cores.max=2 --conf spark.executor.cores=1 --conf spark.executor.memory=1g --conf spark.jars.ivy=/tmp/.ivy2 /opt/app/smoke_test.py']
           volumeMounts: [{name: app, mountPath: /opt/app}]
           resources: {requests: {cpu: 250m, memory: 512Mi}, limits: {cpu: "1", memory: 1Gi}}

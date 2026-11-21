@@ -1,0 +1,18 @@
+# Trains on historic Avro in HDFS, writes the model to HDFS. Re-run to retrain.
+apiVersion: batch/v1
+kind: Job
+metadata: {name: train-order-model}
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: driver
+          image: ${IMAGE}
+          envFrom: [{configMapRef: {name: spark-integration}}]
+          env: [{name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}]
+          args: ["/bin/sh", "-c", 'exec spark-submit --master "$SPARK_MASTER_URL" --conf spark.driver.host=$POD_IP --conf spark.driver.bindAddress=0.0.0.0 --conf spark.driver.port=29000 --conf spark.blockManager.port=29001 --conf spark.cores.max=2 --conf spark.executor.cores=1 --conf spark.executor.memory=1g --conf spark.jars.ivy=/tmp/.ivy2 --conf spark.jars.ivy=/tmp/.ivy2 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.2,org.apache.spark:spark-avro_2.12:3.5.2 /opt/app/train_model.py']
+          volumeMounts: [{name: app, mountPath: /opt/app}]
+          resources: {requests: {cpu: 250m, memory: 512Mi}, limits: {cpu: "1", memory: 1Gi}}
+      volumes: [{name: app, configMap: {name: spark-app}}]
