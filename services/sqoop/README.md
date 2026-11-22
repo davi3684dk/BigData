@@ -1,4 +1,5 @@
-# Deploy the Sqoop manifest using
+# Sqoop
+## Deploy the Sqoop manifest using
 ```kubectl apply -f sqoop.yaml```
 
 Sqoop will know about the HDFS and is connected to the namenode. 
