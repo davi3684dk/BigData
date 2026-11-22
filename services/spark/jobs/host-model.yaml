@@ -1,0 +1,32 @@
+# The hosted model: HTTP API (Service spark-model-api:8000) + weather trigger. Needs a trained model in $MODEL_DIR/current
+# (run jobs/train-historic.yaml first. this app waits for it).
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: spark-model-host}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}      # never two drivers on the same checkpoint
+  selector: {matchLabels: {app: spark-model-host}}
+  template:
+    metadata: {labels: {app: spark-model-host}}
+    spec:
+      containers:
+        - name: driver
+          image: ${IMAGE}
+          envFrom: [{configMapRef: {name: spark-integration}}]
+          env: [{name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}]
+          args: ["/bin/sh", "-c", 'PY=${PYSPARK_PYTHON:-python3}; $PY -m pip show numpy >/dev/null 2>&1 || $PY -m pip install -q --no-cache-dir --disable-pip-version-check --target /tmp/pylibs numpy; export PYTHONPATH=/tmp/pylibs:$PYTHONPATH; exec spark-submit --master "$SPARK_MASTER_URL" --conf spark.driver.host=$POD_IP --conf spark.driver.bindAddress=0.0.0.0 --conf spark.driver.port=29000 --conf spark.blockManager.port=29001 --conf spark.cores.max=1 --conf spark.executor.cores=1 --driver-memory 768m --conf spark.executor.memory=1g --conf spark.jars.ivy=/tmp/.ivy2 --conf spark.sql.shuffle.partitions=4 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.2,org.apache.spark:spark-avro_2.12:3.5.2 /opt/app/host_model.py']
+          ports: [{containerPort: 8000, name: http}]
+          readinessProbe: {httpGet: {path: /health, port: 8000}, periodSeconds: 10, failureThreshold: 6}
+          volumeMounts: [{name: app, mountPath: /opt/app}, {name: schemas, mountPath: /opt/schemas}]
+          resources: {requests: {cpu: 250m, memory: 512Mi}, limits: {cpu: "1", memory: 2Gi}}
+      volumes:
+        - {name: app, configMap: {name: spark-app}}
+        - {name: schemas, configMap: {name: spark-schemas}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: spark-model-api}
+spec:
+  selector: {app: spark-model-host}
+  ports: [{name: http, port: 8000, targetPort: 8000}]

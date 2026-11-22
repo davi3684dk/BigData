@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Installs Spark (Bitnami chart, teacher's values) into YOUR namespace only. No images to build, no registry.
-# Usage: ./setup.sh      (optional: NAMESPACE, CHART_VERSION)
+# Usage: ./setup.sh (optional: NAMESPACE, CHART_VERSION)
 set -euo pipefail
 NAMESPACE="${NAMESPACE:-bd-gr-06}"
 CHART="oci://registry-1.docker.io/bitnamicharts/spark"
