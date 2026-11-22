@@ -1,20 +1,20 @@
 ## Run as a Kubernetes Job
 
-From this directory, compress the CSV inputs before creating a ConfigMap. This
+From main directory, compress the CSV inputs before creating a ConfigMap. This
 keeps the ConfigMap below Kubernetes' size limit:
 
 ```powershell
-Compress-Archive -Path restaurant-1-orders-streaming.csv, restaurant-2-orders-streaming.csv, london_weather.csv `
-    -DestinationPath streaming-inputs.zip -Force
+Compress-Archive -Path "data\streaming\restaurant-1-orders.csv", "data\streaming\restaurant-2-orders.csv", "data\streaming\london_weather.csv" `
+    -DestinationPath "services\restaurant-orders-stream\streaming-inputs.zip" -Force
 try {
     kubectl create configmap restaurant-orders-stream-files `
-        --from-file=stream-restaurant-orders.py `
-        --from-file=streaming-inputs.zip `
-        --from-file=requirements.txt `
+        --from-file="services\restaurant-orders-stream\stream-restaurant-orders.py" `
+        --from-file="services\restaurant-orders-stream\streaming-inputs.zip" `
+        --from-file="services\restaurant-orders-stream\requirements.txt" `
         --dry-run=client -o yaml |
         kubectl apply --server-side -f -
 } finally {
-    Remove-Item streaming-inputs.zip -ErrorAction SilentlyContinue
+    Remove-Item "services\restaurant-orders-stream\streaming-inputs.zip" -ErrorAction SilentlyContinue
 }
 ```
 
