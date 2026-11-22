@@ -7,3 +7,5 @@
 4. Set up Spark [README](./services/spark/README.md)
 
 
+## Data
+The raw data is present in the `data/` directory, along with splits for historic and streaming.
