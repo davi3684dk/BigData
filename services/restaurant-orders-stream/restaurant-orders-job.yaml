@@ -28,6 +28,8 @@ spec:
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: kafka:9092
+            - name: KAFKA_SCHEMA_REGISTRY_URL
+              value: http://kafka-schema-registry:8081
             - name: KAFKA_TOPIC
               value: restaurant-orders
             - name: PYTHONDONTWRITEBYTECODE
