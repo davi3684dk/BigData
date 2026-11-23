@@ -4,15 +4,15 @@ Run these PowerShell commands from the repository root, in the same namespace
 as Kafka and Schema Registry:
 
 ```powershell
-kubectl run restaurant-orders-manual `
+kubectl run restaurant-orders-streaming `
     --image=python:3.12-slim `
     --restart=Never `
     --command -- sleep infinity
 
-kubectl wait --for=condition=Ready pod/restaurant-orders-manual --timeout=120s
-kubectl exec restaurant-orders-manual -- apt-get update
-kubectl exec restaurant-orders-manual -- apt-get install -y tar
-kubectl exec restaurant-orders-manual -- mkdir -p /app
+kubectl wait --for=condition=Ready pod/restaurant-orders-streaming --timeout=120s
+kubectl exec restaurant-orders-streaming -- apt-get update
+kubectl exec restaurant-orders-streaming -- apt-get install -y tar
+kubectl exec restaurant-orders-streaming -- mkdir -p /app
 
 $archive = "services\restaurant-orders-stream\streaming-inputs.zip"
 Compress-Archive -Path `
@@ -22,15 +22,15 @@ Compress-Archive -Path `
     -DestinationPath $archive -Force
 try {
     kubectl cp "services\restaurant-orders-stream\stream-restaurant-orders.py" `
-        restaurant-orders-manual:/app/
+        restaurant-orders-streaming:/app/
     kubectl cp "services\restaurant-orders-stream\requirements.txt" `
-        restaurant-orders-manual:/app/
-    kubectl cp $archive restaurant-orders-manual:/app/streaming-inputs.zip
+        restaurant-orders-streaming:/app/
+    kubectl cp $archive restaurant-orders-streaming:/app/streaming-inputs.zip
 } finally {
     Remove-Item "services\restaurant-orders-stream\streaming-inputs.zip" -ErrorAction SilentlyContinue
 }
 
-kubectl exec -it restaurant-orders-manual -- sh
+kubectl exec -it restaurant-orders-streaming -- sh
 ```
 
 Inside the pod, install the requirements and run the script:

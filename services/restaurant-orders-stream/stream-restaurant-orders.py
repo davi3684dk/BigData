@@ -9,10 +9,7 @@ from datetime import datetime, time as datetime_time
 from pathlib import Path
 
 from confluent_kafka import KafkaException, Producer
-from confluent_kafka.schema_registry import (
-    SchemaRegistryClient,
-    topic_subject_name_strategy,
-)
+from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.serialization import MessageField, SerializationContext
 
@@ -23,7 +20,6 @@ WEATHER_FILENAME = "london_weather.csv"
 WEATHER_TOPIC = "weather-london"
 WEATHER_PREDICTIONS_TOPIC = "weather-predictions-london"
 FORECAST_DAYS = 7
-AVRO_SERIALIZER_CONFIG = {"subject.name.strategy": topic_subject_name_strategy}
 DATA_DIRECTORY = Path(__file__).resolve().parent
 INPUT_ARCHIVE = "streaming-inputs.zip"
 INPUTS = (
@@ -107,6 +103,18 @@ def send_record(producer, topic, key, value, serializer):
         producer.poll(min(1, remaining))
     if delivered[0] is not None:
         raise KafkaException(delivered[0])
+
+
+def restaurant_order_subject_name_strategy(_context, _record_name):
+    return "restaurant-order"
+
+
+def weather_subject_name_strategy(_context, _record_name):
+    return "weather"
+
+
+def weather_forecast_subject_name_strategy(_context, _record_name):
+    return "weather-forecast"
 
 
 @contextmanager
@@ -228,19 +236,23 @@ def main():
     topic = os.environ.get("KAFKA_TOPIC", "restaurant-orders")
     schema_registry = SchemaRegistryClient({"url": schema_registry_url})
     order_serializer = AvroSerializer(
-        schema_registry, ORDER_SCHEMA, conf=AVRO_SERIALIZER_CONFIG
+        schema_registry,
+        ORDER_SCHEMA,
+        conf={
+            "subject.name.strategy": restaurant_order_subject_name_strategy,
+        },
     )
 
     weather_serializer = AvroSerializer(
         schema_registry,
         WEATHER_SCHEMA,
-        conf=AVRO_SERIALIZER_CONFIG,
+        conf={"subject.name.strategy": weather_subject_name_strategy},
     )
 
     forecast_serializer = AvroSerializer(
         schema_registry,
         FORECAST_SCHEMA,
-        conf=AVRO_SERIALIZER_CONFIG,
+        conf={"subject.name.strategy": weather_forecast_subject_name_strategy},
     )
 
     producer = Producer(
