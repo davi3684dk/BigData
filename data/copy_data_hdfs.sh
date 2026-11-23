@@ -1,21 +1,40 @@
 #!/bin/bash
+set -euo pipefail
+cd "$(dirname "$0")"
 
-export NS=bd-gr-06
+NS="${NS:-bd-gr-06}"
+POD=hdfs-cli
+CONTAINER=hadoop
+shopt -s nullglob
 
-echo "Creating /landing folder"
-kubectl exec -n $NS hdfs-cli -- hdfs dfs -mkdir -p /landing
+hdfs_exec() { kubectl exec -n "$NS" -c "$CONTAINER" "$POD" -- "$@"; }
 
+put_file() {   # put_file <local file> <hdfs dir>
+    local f="$1" dir="$2"
+    echo "Uploading $f -> $dir/$(basename "$f")"
+    kubectl exec -i -n "$NS" -c "$CONTAINER" "$POD" -- \
+        hdfs dfs -put -f - "$dir/$(basename "$f")" < "$f"
+}
 
-kubectl exec -n $NS hdfs-cli -- mkdir -p /tmp/orders
-echo "Starting orders copy"
+orders=(historical/restaurant-*-orders.csv)
+weather=()
 for f in historical/*.csv; do
-    echo "Copying file: $f"
-    kubectl cp "$f" $NS/hdfs-cli:/tmp/orders/$(basename "$f")
+    [[ "$f" == historical/restaurant-*-orders.csv ]] || weather+=("$f")
 done
 
-kubectl exec -n $NS hdfs-cli -- mkdir -p /tmp/weather
-echo "Starting weather copy"
-for f in weather/*.csv; do
-    echo "Copying file: $f"
-    kubectl cp "$f" $NS/hdfs-cli:/tmp/weather/$(basename "$f")
-done
+if [[ ${#orders[@]} -eq 0 || ${#weather[@]} -eq 0 ]]; then
+    echo "Expected order files and a weather file in historical/ (found ${#orders[@]} orders, ${#weather[@]} weather)" >&2
+    exit 1
+fi
+
+echo "Creating HDFS folders"
+hdfs_exec hdfs dfs -mkdir -p /landing/orders /landing/weather
+
+echo "Starting orders upload"
+for f in "${orders[@]}"; do put_file "$f" /landing/orders; done
+
+echo "Starting weather upload"
+for f in "${weather[@]}"; do put_file "$f" /landing/weather; done
+
+echo "Done. Contents of /landing:"
+hdfs_exec hdfs dfs -ls -R -h /landing
