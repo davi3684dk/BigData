@@ -1,35 +1,56 @@
-## Run as a Kubernetes Job
+## Run manually in an interactive Kubernetes pod
 
-From main directory, compress the CSV inputs before creating a ConfigMap. This
-keeps the ConfigMap below Kubernetes' size limit:
+Run these PowerShell commands from the repository root, in the same namespace
+as Kafka and Schema Registry:
 
 ```powershell
-Compress-Archive -Path "data\streaming\restaurant-1-orders.csv", "data\streaming\restaurant-2-orders.csv", "data\streaming\london_weather.csv" `
-    -DestinationPath "services\restaurant-orders-stream\streaming-inputs.zip" -Force
+kubectl run restaurant-orders-manual `
+    --image=python:3.12-slim `
+    --restart=Never `
+    --command -- sleep infinity
+
+kubectl wait --for=condition=Ready pod/restaurant-orders-manual --timeout=120s
+kubectl exec restaurant-orders-manual -- apt-get update
+kubectl exec restaurant-orders-manual -- apt-get install -y tar
+kubectl exec restaurant-orders-manual -- mkdir -p /app
+
+$archive = "services\restaurant-orders-stream\streaming-inputs.zip"
+Compress-Archive -Path `
+    "data\streaming\restaurant-1-orders.csv", `
+    "data\streaming\restaurant-2-orders.csv", `
+    "data\streaming\london_weather.csv" `
+    -DestinationPath $archive -Force
 try {
-    kubectl create configmap restaurant-orders-stream-files `
-        --from-file="services\restaurant-orders-stream\stream-restaurant-orders.py" `
-        --from-file="services\restaurant-orders-stream\streaming-inputs.zip" `
-        --from-file="services\restaurant-orders-stream\requirements.txt" `
-        --dry-run=client -o yaml |
-        kubectl apply --server-side -f -
+    kubectl cp "services\restaurant-orders-stream\stream-restaurant-orders.py" `
+        restaurant-orders-manual:/app/
+    kubectl cp "services\restaurant-orders-stream\requirements.txt" `
+        restaurant-orders-manual:/app/
+    kubectl cp $archive restaurant-orders-manual:/app/streaming-inputs.zip
 } finally {
     Remove-Item "services\restaurant-orders-stream\streaming-inputs.zip" -ErrorAction SilentlyContinue
 }
+
+kubectl exec -it restaurant-orders-manual -- sh
 ```
 
-Create the Job after
-the ConfigMap, Kafka, and Kafka Schema Registry are available in the same
-namespace:
+Inside the pod, install the requirements and run the script:
 
 ```sh
-kubectl apply -f restaurant-orders-job.yaml
-kubectl logs -f job/restaurant-orders-stream
+python -m pip install --target /tmp/python-packages -r /app/requirements.txt
+PYTHONPATH=/tmp/python-packages python /app/stream-restaurant-orders.py
 ```
 
-To run the Job again, delete the existing Job and
-apply the manifest again. Update the ConfigMap first if you have changed the
-script, CSV files, or dependency list.
+The script defaults to `kafka:9092` and
+`http://kafka-schema-registry:8081`; override them with
+`KAFKA_BOOTSTRAP_SERVERS` and `KAFKA_SCHEMA_REGISTRY_URL` if needed. The
+simulation uses one minute per event-day, so replaying the full input date
+range takes many hours.
+
+After the run, exit the shell and remove the pod:
+
+```powershell
+kubectl delete pod restaurant-orders-manual
+```
 
 The script streams daily observations to `weather-london` and publishes one
 message containing seven weather records in a `forecasts` list to

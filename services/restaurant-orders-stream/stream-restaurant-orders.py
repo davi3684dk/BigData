@@ -2,7 +2,6 @@ import csv
 import io
 import json
 import os
-import re
 import time
 import zipfile
 from contextlib import contextmanager
@@ -39,27 +38,58 @@ ORDER_SCHEMA = json.dumps(
             {"name": "source", "type": "string"},
             {
                 "name": "record",
-                "type": {"type": "map", "values": ["null", "string"]},
+                "type": {
+                    "type": "record",
+                    "name": "RestaurantOrderRecord",
+                    "fields": [
+                        {"name": "order_id", "type": "int"},
+                        {"name": "order_date", "type": "string"},
+                        {"name": "item_name", "type": "string"},
+                        {"name": "quantity", "type": "int"},
+                        {"name": "product_price", "type": "double"},
+                        {"name": "total_products", "type": "int"},
+                    ],
+                },
             },
         ],
     }
 )
 
-
-def weather_schema(field_names):
-    fields = []
-    for field_name in field_names:
-        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", field_name):
-            raise ValueError(f"Invalid Avro weather field name: {field_name!r}")
-        fields.append(
-            {"name": field_name, "type": ["null", "string"], "default": None}
-        )
-    return {
+WEATHER_SCHEMA = json.dumps(
+    {
         "type": "record",
-        "name": "WeatherRecord",
-        "fields": fields,
+        "name": "WeatherObservation",
+        "fields": [
+            {"name": "date", "type": "string"},
+            {"name": "cloud_cover", "type": ["null", "double"]},
+            {"name": "sunshine", "type": ["null", "double"]},
+            {"name": "global_radiation", "type": ["null", "double"]},
+            {"name": "max_temp", "type": ["null", "double"]},
+            {"name": "mean_temp", "type": ["null", "double"]},
+            {"name": "min_temp", "type": ["null", "double"]},
+            {"name": "precipitation", "type": ["null", "double"]},
+            {"name": "pressure", "type": ["null", "double"]},
+            {"name": "snow_depth", "type": ["null", "double"]},
+        ],
     }
+)
 
+FORECAST_SCHEMA = json.dumps(
+    {
+        "type": "record",
+        "name": "WeatherForecastBatch",
+        "fields": [
+            {"name": "issued_at", "type": "string"},
+            {
+                "name": "forecasts",
+                "type": {
+                    "type": "array",
+                    "items": json.loads(WEATHER_SCHEMA),
+                },
+            },
+        ],
+    }
+)
 
 def send_record(producer, topic, key, value, serializer):
     delivered = []
@@ -154,6 +184,40 @@ def order_key(source, row):
     return row.get(key_field)
 
 
+def normalize_order_record(source, row):
+    return {
+        "order_id": int(
+            row["Order Number"] if source == "restaurant-1" else row["Order ID"]
+        ),
+        "order_date": row["Order Date"],
+        "item_name": row["Item Name"],
+        "quantity": int(row["Quantity"]),
+        "product_price": float(row["Product Price"]),
+        "total_products": int(row["Total products"]),
+    }
+
+
+def optional_float(value):
+    if value is None or not str(value).strip():
+        return None
+    return float(value)
+
+
+def normalize_weather_record(row):
+    return {
+        "date": row["date"],
+        "cloud_cover": optional_float(row.get("cloud_cover")),
+        "sunshine": optional_float(row.get("sunshine")),
+        "global_radiation": optional_float(row.get("global_radiation")),
+        "max_temp": optional_float(row.get("max_temp")),
+        "mean_temp": optional_float(row.get("mean_temp")),
+        "min_temp": optional_float(row.get("min_temp")),
+        "precipitation": optional_float(row.get("precipitation")),
+        "pressure": optional_float(row.get("pressure")),
+        "snow_depth": optional_float(row.get("snow_depth")),
+    }
+
+
 def main():
     records = load_records()
     weather_records = load_weather_records()
@@ -166,29 +230,16 @@ def main():
     order_serializer = AvroSerializer(
         schema_registry, ORDER_SCHEMA, conf=AVRO_SERIALIZER_CONFIG
     )
-    observation_schema = weather_schema(weather_records[0][1].keys())
+
     weather_serializer = AvroSerializer(
         schema_registry,
-        json.dumps(observation_schema),
+        WEATHER_SCHEMA,
         conf=AVRO_SERIALIZER_CONFIG,
     )
-    forecast_schema = {
-        "type": "record",
-        "name": "WeatherForecastBatch",
-        "fields": [
-            {"name": "issued_at", "type": "string"},
-            {
-                "name": "forecasts",
-                "type": {
-                    "type": "array",
-                    "items": observation_schema,
-                },
-            },
-        ],
-    }
+
     forecast_serializer = AvroSerializer(
         schema_registry,
-        json.dumps(forecast_schema),
+        FORECAST_SCHEMA,
         conf=AVRO_SERIALIZER_CONFIG,
     )
 
@@ -199,7 +250,6 @@ def main():
             "retries": 5,
         }
     )
-    first_order_time = records[0][0]
     events = [
         (event_time, "order", source, -1, row)
         for event_time, source, row in records
@@ -225,8 +275,10 @@ def main():
         )
         for index, (event_date, row) in enumerate(weather_records)
     )
-    events.sort(key=lambda event: (event[0], event[1], event[2]))
-    simulation_start = first_order_time
+    # Sort event by datetime, then by event type to ensure that forecasts are sent before the weather observations for the same day
+    events.sort(key=lambda item: (item[0], item[1]))
+    
+    simulation_start = min(records[0][0], weather_records[0][0])
     started_at = time.monotonic()
     print(
         f"Streaming {len(records)} order records to {topic} and "
@@ -252,7 +304,10 @@ def main():
                     producer,
                     topic,
                     key=order_key(source, row),
-                    value={"source": source, "record": row},
+                    value={
+                        "source": source,
+                        "record": normalize_order_record(source, row),
+                    },
                     serializer=order_serializer,
                 )
                 order_count += 1
@@ -275,7 +330,7 @@ def main():
                     ).strftime(DATE_FORMAT)
                     forecast_weather = dict(forecast_row)
                     forecast_weather["date"] = forecast_timestamp
-                    forecasts.append(forecast_weather)
+                    forecasts.append(normalize_weather_record(forecast_weather))
 
                 forecast_issued_at = event_time.strftime(DATE_FORMAT)
                 send_record(
@@ -297,7 +352,7 @@ def main():
                 producer,
                 WEATHER_TOPIC,
                 key=weather_timestamp,
-                value=weather_record,
+                value=normalize_weather_record(weather_record),
                 serializer=weather_serializer,
             )
     finally:
