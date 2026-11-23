@@ -17,11 +17,6 @@ os.makedirs("./streaming", exist_ok=True)
 for path in sorted(glob.glob("./full/*.csv")):
     name = os.path.basename(path)
 
-    if "orders" not in name:
-        shutil.copy(path, f"./historical/{name}")
-        print(f"{name}: copied to historical")
-        continue
-
     df = pd.read_csv(path)
     order_col, date_col = df.columns[0], df.columns[1]
     parsed = pd.to_datetime(df[date_col], format=DATE_FORMAT)

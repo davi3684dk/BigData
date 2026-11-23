@@ -47,10 +47,6 @@ ORDERS_SCHEMA = StructType([
     StructField("product_price",  DoubleType(),  True),
     StructField("total_products", IntegerType(), True),
 ])
-PRODUCTS_SCHEMA = StructType([
-    StructField("item_name",     StringType(), False),
-    StructField("product_price", DoubleType(), True),
-])
 ORDER_DATE_FORMAT = "dd/MM/yyyy HH:mm"
 
 
@@ -71,14 +67,11 @@ WEATHER_FILES = {
 }
 
 orders_base = os.path.dirname(config_path("ORDERS_PATH"))        # /historic/orders/restaurant-* -> /historic/orders
-products_base = os.path.dirname(config_path("PRODUCTS_PATH"))
 
 DATASETS = []
 for r in RESTAURANTS:
     DATASETS.append(Dataset(f"{r}/orders", f"{r}-orders.csv", f"{orders_base}/{r}",
                             ORDERS_SCHEMA, parse_order_date))
-    DATASETS.append(Dataset(f"{r}/products", f"{r}-products-price.csv", f"{products_base}/{r}",
-                            PRODUCTS_SCHEMA))
 for key, fname in WEATHER_FILES.items():
     DATASETS.append(Dataset(f"weather/{key}", fname, config_path(key)))
 
