@@ -2,15 +2,20 @@ import csv
 import io
 import json
 import os
+import re
 import time
 import zipfile
 from contextlib import contextmanager
 from datetime import datetime, time as datetime_time
 from pathlib import Path
 
-from kafka import KafkaAdminClient, KafkaProducer
-from kafka.admin import NewTopic
-from kafka.errors import TopicAlreadyExistsError
+from confluent_kafka import KafkaException, Producer
+from confluent_kafka.schema_registry import (
+    SchemaRegistryClient,
+    topic_subject_name_strategy,
+)
+from confluent_kafka.schema_registry.avro import AvroSerializer
+from confluent_kafka.serialization import MessageField, SerializationContext
 
 
 DATE_FORMAT = "%d/%m/%Y %H:%M"
@@ -19,12 +24,59 @@ WEATHER_FILENAME = "london_weather.csv"
 WEATHER_TOPIC = "weather-london"
 WEATHER_PREDICTIONS_TOPIC = "weather-predictions-london"
 FORECAST_DAYS = 7
+AVRO_SERIALIZER_CONFIG = {"subject.name.strategy": topic_subject_name_strategy}
 DATA_DIRECTORY = Path(__file__).resolve().parent
 INPUT_ARCHIVE = "streaming-inputs.zip"
 INPUTS = (
-    ("restaurant-1", "restaurant-1-orders-streaming.csv"),
-    ("restaurant-2", "restaurant-2-orders-streaming.csv"),
+    ("restaurant-1", "restaurant-1-orders.csv"),
+    ("restaurant-2", "restaurant-2-orders.csv"),
 )
+ORDER_SCHEMA = json.dumps(
+    {
+        "type": "record",
+        "name": "RestaurantOrder",
+        "fields": [
+            {"name": "source", "type": "string"},
+            {
+                "name": "record",
+                "type": {"type": "map", "values": ["null", "string"]},
+            },
+        ],
+    }
+)
+
+
+def weather_schema(field_names):
+    fields = []
+    for field_name in field_names:
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", field_name):
+            raise ValueError(f"Invalid Avro weather field name: {field_name!r}")
+        fields.append(
+            {"name": field_name, "type": ["null", "string"], "default": None}
+        )
+    return {
+        "type": "record",
+        "name": "WeatherRecord",
+        "fields": fields,
+    }
+
+
+def send_record(producer, topic, key, value, serializer):
+    delivered = []
+    producer.produce(
+        topic,
+        key=key,
+        value=serializer(value, SerializationContext(topic, MessageField.VALUE)),
+        on_delivery=lambda error, message: delivered.append(error),
+    )
+    deadline = time.monotonic() + 30
+    while not delivered:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError(f"Timed out sending a record to Kafka topic {topic}")
+        producer.poll(min(1, remaining))
+    if delivered[0] is not None:
+        raise KafkaException(delivered[0])
 
 
 @contextmanager
@@ -106,16 +158,46 @@ def main():
     records = load_records()
     weather_records = load_weather_records()
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+    schema_registry_url = os.environ.get(
+        "KAFKA_SCHEMA_REGISTRY_URL", "http://kafka-schema-registry:8081"
+    )
     topic = os.environ.get("KAFKA_TOPIC", "restaurant-orders")
+    schema_registry = SchemaRegistryClient({"url": schema_registry_url})
+    order_serializer = AvroSerializer(
+        schema_registry, ORDER_SCHEMA, conf=AVRO_SERIALIZER_CONFIG
+    )
+    observation_schema = weather_schema(weather_records[0][1].keys())
+    weather_serializer = AvroSerializer(
+        schema_registry,
+        json.dumps(observation_schema),
+        conf=AVRO_SERIALIZER_CONFIG,
+    )
+    forecast_schema = {
+        "type": "record",
+        "name": "WeatherForecastBatch",
+        "fields": [
+            {"name": "issued_at", "type": "string"},
+            {
+                "name": "forecasts",
+                "type": {
+                    "type": "array",
+                    "items": observation_schema,
+                },
+            },
+        ],
+    }
+    forecast_serializer = AvroSerializer(
+        schema_registry,
+        json.dumps(forecast_schema),
+        conf=AVRO_SERIALIZER_CONFIG,
+    )
 
-    producer = KafkaProducer(
-        bootstrap_servers=bootstrap_servers.split(","),
-        acks="all",
-        retries=5,
-        key_serializer=lambda key: key.encode("utf-8") if key is not None else None,
-        value_serializer=lambda value: json.dumps(value, ensure_ascii=False).encode(
-            "utf-8"
-        ),
+    producer = Producer(
+        {
+            "bootstrap.servers": bootstrap_servers,
+            "acks": "all",
+            "retries": 5,
+        }
     )
     first_order_time = records[0][0]
     events = [
@@ -166,11 +248,13 @@ def main():
                 time.sleep(wait_seconds)
 
             if event_type == "order":
-                producer.send(
+                send_record(
+                    producer,
                     topic,
                     key=order_key(source, row),
                     value={"source": source, "record": row},
-                ).get(timeout=30)
+                    serializer=order_serializer,
+                )
                 order_count += 1
                 if order_count % 1000 == 0:
                     print(
@@ -194,27 +278,34 @@ def main():
                     forecasts.append(forecast_weather)
 
                 forecast_issued_at = event_time.strftime(DATE_FORMAT)
-                producer.send(
+                send_record(
+                    producer,
                     WEATHER_PREDICTIONS_TOPIC,
                     key=forecast_issued_at,
                     value={
                         "issued_at": forecast_issued_at,
                         "forecasts": forecasts,
                     },
-                ).get(timeout=30)
+                    serializer=forecast_serializer,
+                )
                 continue
 
             weather_timestamp = event_time.strftime(DATE_FORMAT)
             weather_record = dict(row)
             weather_record["date"] = weather_timestamp
-            producer.send(
+            send_record(
+                producer,
                 WEATHER_TOPIC,
                 key=weather_timestamp,
                 value=weather_record,
-            ).get(timeout=30)
+                serializer=weather_serializer,
+            )
     finally:
-        producer.flush()
-        producer.close()
+        remaining = producer.flush(30)
+        if remaining:
+            raise TimeoutError(
+                f"Timed out flushing {remaining} pending Kafka records"
+            )
 
     print(
         f"Finished streaming {len(records)} order records, "

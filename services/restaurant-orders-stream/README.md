@@ -19,7 +19,8 @@ try {
 ```
 
 Create the Job after
-the ConfigMap and Kafka are available in the same namespace:
+the ConfigMap, Kafka, and Kafka Schema Registry are available in the same
+namespace:
 
 ```sh
 kubectl apply -f restaurant-orders-job.yaml
@@ -37,3 +38,10 @@ following six days. Actual observations go to `weather-london` at `23:59` on
 their date. Timestamps use the same `DD/MM/YYYY HH:MM` format as order
 timestamps. The final six dates have no forecast batch because the CSV has no
 complete seven-day horizon for them.
+
+All three topics use Confluent-framed Avro values registered in Schema
+Registry: order records use a `RestaurantOrder` schema, observations use a
+`WeatherRecord` schema, and forecast batches use a `WeatherForecastBatch`
+schema containing weather records. The producer connects to
+`http://kafka-schema-registry:8081` by default; override it with
+`KAFKA_SCHEMA_REGISTRY_URL` if Schema Registry is hosted elsewhere.
