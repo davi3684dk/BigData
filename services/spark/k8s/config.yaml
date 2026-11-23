@@ -9,10 +9,7 @@ data:
   KAFKA_BOOTSTRAP: "kafka:9092" # Kafka bootstrap servers
   KAFKA_REGISTRY_FRAMING: "true" # true = Avro in Kafka has Confluent framing (1 magic byte + 4 byte schema id)
   ORDERS_PATH: "/historic/orders/restaurant-*" # HDFS path
-  PRODUCTS_PATH: "/historic/products/restaurant-*"
-  WEATHER_PATH_1979_2020: "/historic/weather/weather-london-1979-2020" # HDFS path: emmanuelfwerr london_weather.csv
-  WEATHER_PATH_1979_2023: "/historic/weather/weather-london-1979-2023" # HDFS path: zongaobian 1979-2023 (ECA&D format)
-  WEATHER_PATH_2000_2023: "/historic/weather/weather-london-2000-2023" # HDFS path: noahx1 2000-2023 (Meteostat format)
+  WEATHER_HISTORICAL_PATH: "/historic/weather" # HDFS path: emmanuelfwerr london_weather.csv
   WEATHER_LIVE_PATH: "/live/weather-forecast-*" # HDFS path: live forecasts landed from Kafka 
   PREDICTIONS_LOG: "/predictions" # HDFS dir where host_model logs every prediction (for accuracy checks)
   TEST_FRACTION: "0.2" # training: newest 20% of days are the test period
