@@ -1,0 +1,89 @@
+{
+    "type": "record",
+    "name": "WeatherForecastBatch",
+    "fields": [
+        {
+            "name": "issued_at",
+            "type": "string"
+        },
+        {
+            "name": "forecasts",
+            "type": {
+                "type": "array",
+                "items": {
+                    "type": "record",
+                    "name": "WeatherObservation",
+                    "fields": [
+                        {
+                            "name": "date",
+                            "type": "string"
+                        },
+                        {
+                            "name": "cloud_cover",
+                            "type": [
+                                "null",
+                                "double"
+                            ]
+                        },
+                        {
+                            "name": "sunshine",
+                            "type": [
+                                "null",
+                                "double"
+                            ]
+                        },
+                        {
+                            "name": "global_radiation",
+                            "type": [
+                                "null",
+                                "double"
+                            ]
+                        },
+                        {
+                            "name": "max_temp",
+                            "type": [
+                                "null",
+                                "double"
+                            ]
+                        },
+                        {
+                            "name": "mean_temp",
+                            "type": [
+                                "null",
+                                "double"
+                            ]
+                        },
+                        {
+                            "name": "min_temp",
+                            "type": [
+                                "null",
+                                "double"
+                            ]
+                        },
+                        {
+                            "name": "precipitation",
+                            "type": [
+                                "null",
+                                "double"
+                            ]
+                        },
+                        {
+                            "name": "pressure",
+                            "type": [
+                                "null",
+                                "double"
+                            ]
+                        },
+                        {
+                            "name": "snow_depth",
+                            "type": [
+                                "null",
+                                "double"
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

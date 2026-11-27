@@ -131,8 +131,30 @@ out_schema = open(f"{SCHEMAS}/prediction.avsc").read()
 raw = (spark.readStream.format("kafka").option("kafka.bootstrap.servers", BOOTSTRAP)
        .option("subscribePattern", IN_PATTERN).option("startingOffsets", "latest").load())
 payload = F.expr("substring(value, 6, length(value) - 5)") if FRAMED else F.col("value")  # strip Confluent framing
-forecast = (raw.select(from_avro(payload, in_schema).alias("j")).select("j.*")
-            .withColumn("date", F.to_date("date")))
+forecast = (
+    raw.select(from_avro(payload, in_schema).alias("j"))
+    .select(
+        F.col("j.issued_at").alias("issued_at"),
+        F.explode("j.forecasts").alias("obs"),
+    )
+    .select(
+        F.to_date("obs.date").alias("date"),
+        F.lit("london").alias("area"), # For now hardcoded London, later we need to talk about adding area to forecast schema TODO
+        F.col("issued_at"),
+        F.col("obs.mean_temp").cast("double").alias("mean_temp"),
+        F.col("obs.mean_temp").cast("double").alias("temperature"),
+        F.col("obs.min_temp").cast("double").alias("min_temp"),
+        F.col("obs.max_temp").cast("double").alias("max_temp"),
+        F.col("obs.precipitation").cast("double").alias("precipitation"),
+        F.col("obs.sunshine").cast("double").alias("sunshine"),
+        F.col("obs.cloud_cover").cast("double").alias("cloud_cover"),
+        F.col("obs.global_radiation").cast("double").alias("global_radiation"),
+        F.col("obs.pressure").cast("double").alias("pressure"),
+        F.col("obs.snow_depth").cast("double").alias("snow_depth"),
+    )
+    .filter(F.col("date").isNotNull())
+)
+
 
 
 def on_batch(batch_df, batch_id):

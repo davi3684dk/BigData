@@ -23,10 +23,8 @@ RUN_ID = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
 
 spark = SparkSession.builder.appName("train-order-model").getOrCreate()
 
-# Weather: 3 datasets -> one harmonised table (priority order)
-SOURCES = [("WEATHER_PATH_1979_2020", from_emmanuel), ("WEATHER_PATH_1979_2023", from_ecad),
-           ("WEATHER_PATH_2000_2023", from_meteostat),
-           ("WEATHER_LIVE_PATH", from_live_forecast)]  # last = lowest priority: forecasts streamed via Kafka (live period)
+# Weather: 1 dataset -> one harmonised table, MOOT since only one source now
+SOURCES = [("WEATHER_HISTORICAL_PATH", from_emmanuel)] 
 frames = [fn(snake(spark.read.format(FMT).load(HDFS + os.environ[env].strip())))
           for env, fn in SOURCES if os.environ.get(env, "").strip()]
 if not frames:

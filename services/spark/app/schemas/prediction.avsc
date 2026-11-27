@@ -1,0 +1,51 @@
+{
+  "type": "record",
+  "name": "OrderPrediction",
+  "namespace": "com.bdgr06.predictions",
+  "doc": "Predicted takeaway order volume and revenue per restaurant",
+  "fields": [
+    {
+      "name": "restaurant_id",
+      "type": "string",
+      "doc": "Identifier for the target restaurant (e.g., restaurant-1)"
+    },
+    {
+      "name": "date",
+      "type": "string",
+      "doc": "Target date for the prediction (YYYY-MM-DD)"
+    },
+    {
+      "name": "predicted_orders",
+      "type": "double",
+      "doc": "Predicted number of takeaway orders for the target date"
+    },
+    {
+      "name": "predicted_revenue",
+      "type": ["null", "double"],
+      "default": null,
+      "doc": "Predicted total revenue based on average order value"
+    },
+    {
+      "name": "model_version",
+      "type": "string",
+      "doc": "Run ID / version of the MLlib model that produced the prediction"
+    },
+    {
+      "name": "predicted_at",
+      "type": "string",
+      "doc": "ISO-8601 timestamp when the prediction was computed"
+    },
+    {
+      "name": "temperature",
+      "type": ["null", "double"],
+      "default": null,
+      "doc": "Input forecast temperature used for this prediction"
+    },
+    {
+      "name": "precipitation",
+      "type": ["null", "double"],
+      "default": null,
+      "doc": "Input forecast precipitation used for this prediction"
+    }
+  ]
+}

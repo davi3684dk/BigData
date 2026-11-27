@@ -13,7 +13,7 @@ data:
   WEATHER_LIVE_PATH: "/live/weather-forecast-*" # HDFS path: live forecasts landed from Kafka 
   PREDICTIONS_LOG: "/predictions" # HDFS dir where host_model logs every prediction (for accuracy checks)
   TEST_FRACTION: "0.2" # training: newest 20% of days are the test period
-  WEATHER_TOPIC_PATTERN: "weather-forecast-.*" # Kafka topics with live forecasts
+  WEATHER_TOPIC_PATTERN: "weather-predictions-.*" # Kafka topics with live forecasts
   PREDICTIONS_TOPIC: "predictions" # Kafka topic Spark writes predictions to
   PREDICTIONS_SCHEMA_ID: "" # Schema Registry id for predictions; empty = plain Avro, no framing
   MODEL_DIR: "/models" # HDFS dir for trained model (relative to HDFS_URL)
