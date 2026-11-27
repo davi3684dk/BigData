@@ -18,7 +18,7 @@ BOOTSTRAP = os.environ["KAFKA_BOOTSTRAP"]
 IN_PATTERN = os.environ.get("WEATHER_TOPIC_PATTERN", "weather-forecast-.*")
 OUT_TOPIC = os.environ.get("PREDICTIONS_TOPIC", "predictions")
 FRAMED = os.environ.get("KAFKA_REGISTRY_FRAMING", "true").lower() == "true"
-OUT_ID = os.environ.get("PREDICTIONS_SCHEMA_ID", "")
+OUT_ID = os.environ.get("PREDICTIONS_SCHEMA_ID", "13")
 PUBLISH = os.environ.get("PUBLISH_FROM_SPARK", "true").lower() == "true"
 MODEL_DIR = HDFS + os.environ.get("MODEL_DIR", "/models")
 PRED_LOG = HDFS + os.environ.get("PREDICTIONS_LOG", "/predictions")  # every prediction, kept for accuracy checks
@@ -180,7 +180,7 @@ def on_batch(batch_df, batch_id):
         msgs = out.select(F.col("restaurant_id").alias("key"), avro.alias("value"))
         w = lambda d: d.write.format("kafka").option("kafka.bootstrap.servers", BOOTSTRAP)
         w(msgs).option("topic", OUT_TOPIC).save()
-        w(msgs.withColumn("topic", F.concat(F.lit("restaurant-"), F.col("key")))).save() # feedback loop
+        w(msgs.withColumn("topic", F.concat(F.lit("restaurant-"), F.col("key"),F.lit("-predictions")))).save() # feedback loop
     print(f"batch {batch_id}: {out.count()} predictions with model {version}", flush=True)
     out.unpersist()
 
