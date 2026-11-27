@@ -7,7 +7,7 @@ Target units: temperatures C, precipitation mm, sunshine hours, cloud_cover okta
 """
 import re
 from functools import reduce
-from pyspark.sql import functions as F
+from pyspark.sql import functions as F, Window
 from features import WEATHER
 
 
@@ -83,7 +83,12 @@ def harmonise(frames):
 
 
 def from_live_forecast(df):
-    """Forecasts that were streamed through Kafka and landed in HDFS (fields as in app/schemas/weather_forecast.avsc).
-    Used for days that have live orders but no historic observation. One row per date = average of all forecasts for it."""
-    x = df.select(_date(df).alias("date"), *[_num(df, c).alias(c) for c in WEATHER])
-    return x.groupBy("date").agg(*[F.avg(c).alias(c) for c in WEATHER])
+    """Forecast batches that were streamed through Kafka and landed in HDFS (schema: issued_at, forecasts[] - see
+    app/schemas/weather_forecast.avsc). Used for days that have live orders but no historic observation.
+    One row per date = the most recently issued forecast for that date."""
+    expect(df, ["issued_at", "forecasts"], "live weather forecasts")
+    x = df.select("issued_at", F.explode("forecasts").alias("f"))
+    x = x.select("issued_at", F.col("f.date").alias("date"), *[F.col(f"f.{c}").alias(c) for c in WEATHER])
+    x = x.select("issued_at", _date(x).alias("date"), *[_num(x, c).alias(c) for c in WEATHER]).where(F.col("date").isNotNull())
+    w = Window.partitionBy("date").orderBy(F.col("issued_at").desc())
+    return x.withColumn("rn", F.row_number().over(w)).where("rn = 1").drop("rn", "issued_at")

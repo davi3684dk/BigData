@@ -1,7 +1,6 @@
 {
   "type": "record",
   "name": "OrderPrediction",
-  "namespace": "com.bdgr06.predictions",
   "doc": "Predicted takeaway order volume and revenue per restaurant",
   "fields": [
     {
@@ -16,7 +15,7 @@
     },
     {
       "name": "predicted_orders",
-      "type": "double",
+      "type": "long",
       "doc": "Predicted number of takeaway orders for the target date"
     },
     {

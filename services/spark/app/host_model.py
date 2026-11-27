@@ -164,7 +164,17 @@ def on_batch(batch_df, batch_id):
     out = predict_df(model, aov, batch_df, version).cache()
     out.write.mode("append").parquet(PRED_LOG) # history: what we predicted, when, with which model
     if PUBLISH:
-        avro = to_avro(F.struct(*out.columns), out_schema)
+        avro_struct = F.struct(
+            F.col("restaurant_id"),
+            F.col("date"),
+            F.col("predicted_orders").cast("long").alias("predicted_orders"),
+            F.col("predicted_revenue").cast("double").alias("predicted_revenue"),
+            F.col("model_version"),
+            F.col("predicted_at"),
+            F.col("mean_temp").cast("double").alias("temperature"),
+            F.col("precipitation").cast("double").alias("precipitation"),
+        )
+        avro = to_avro(avro_struct, out_schema)
         if OUT_ID: # prepend Confluent framing so Schema Registry consumers can decode
             avro = F.concat(F.lit(bytearray(b"\x00" + int(OUT_ID).to_bytes(4, "big"))), avro)
         msgs = out.select(F.col("restaurant_id").alias("key"), avro.alias("value"))
