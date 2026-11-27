@@ -19,9 +19,13 @@ We will also use Kafka Connect, Kafka Schema Registry, and Kafka KSQL to facilit
 
 ## Save the streaming topics to HDFS
 
-The `streaming-topics-hdfs-sink.json` connector consumes `restaurant-orders`,
-`weather-london`, and `weather-predictions-london`, and writes Avro files under
-`/topics/<topic>` in HDFS. It starts from the earliest available Kafka offsets.
+The `streaming-topics-hdfs-sink.json` connector consumes `weather-london` and
+`weather-predictions-london`, writing Avro files under `/topics/<topic>` in
+HDFS. The separate `restaurant-orders-hdfs-sink.json` connector consumes
+`restaurant-orders` and partitions its Avro files by the record's `source`
+field, producing paths such as `/topics/restaurant-orders/source=restaurant-1`.
+Both connectors start from the earliest available Kafka offsets.
+
 Kafka, Schema Registry, Kafka Connect, and HDFS must be deployed in the same
 namespace. The Connect worker image must include the HDFS sink plugin.
 
@@ -31,7 +35,8 @@ Forward the Kafka Connect REST API in one PowerShell window:
 kubectl port-forward svc/kafka-connect 8083:8083
 ```
 
-In another window, check for the HDFS sink plugin and register the connector:
+In another window, check for the HDFS sink plugin. For a new deployment,
+register both connectors:
 
 ```powershell
 Invoke-RestMethod http://localhost:8083/connector-plugins |
@@ -41,17 +46,23 @@ Invoke-RestMethod `
     -Method Post `
     -Uri http://localhost:8083/connectors `
     -ContentType "application/json" `
-    -InFile "services\kafka\streaming-topics-hdfs-sink.json"
+    -InFile "services\kafka\weather-hdfs-sink.json"
+
+Invoke-RestMethod `
+    -Method Post `
+    -Uri http://localhost:8083/connectors `
+    -ContentType "application/json" `
+    -InFile "services\kafka\restaurant-orders-hdfs-sink.json"
 ```
 
-Check that the connector and its task are running:
+Check that both connectors and their tasks are running:
 
 ```powershell
-Invoke-RestMethod http://localhost:8083/connectors/streaming-topics-hdfs-sink/status
+Invoke-RestMethod http://localhost:8083/connectors/weather-hdfs-sink/status
+Invoke-RestMethod http://localhost:8083/connectors/restaurant-orders-hdfs-sink/status
 ```
 
 The connector uses a string converter for Kafka keys and Schema Registry's
 Avro converter for values. HDFS files are finalized after 1,000 records or
 about one minute. To inspect the output, run `hdfs dfs -ls -R /topics` from
-the `hdfs-cli` pod. Connector write-ahead logs are stored under
-`/logs/streaming-topics-hdfs-sink`.
+the `hdfs-cli` pod. 

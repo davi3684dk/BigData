@@ -1,0 +1,20 @@
+{
+  "name": "weather-hdfs-sink",
+  "config": {
+    "connector.class": "io.confluent.connect.hdfs.HdfsSinkConnector",
+    "tasks.max": "1",
+    "topics": "weather-london,weather-predictions-london",
+    "hdfs.url": "hdfs://namenode:9000",
+    "topics.dir": "/topics",
+    "format.class": "io.confluent.connect.hdfs.avro.AvroFormat",
+    "flush.size": "1000",
+    "rotate.interval.ms": "60000",
+    "schema.compatibility": "NONE",
+    "consumer.auto.offset.reset": "earliest",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://kafka-schema-registry:8081",
+    "confluent.topic.bootstrap.servers": "kafka:9092",
+    "confluent.topic.replication.factor": "1"
+  }
+}

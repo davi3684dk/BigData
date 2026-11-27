@@ -54,7 +54,7 @@ ORDER_SCHEMA = json.dumps(
 WEATHER_SCHEMA = json.dumps(
     {
         "type": "record",
-        "name": "WeatherObservation",
+        "name": "Weather",
         "fields": [
             {"name": "date", "type": "string"},
             {"name": "cloud_cover", "type": ["null", "double"]},
@@ -73,7 +73,7 @@ WEATHER_SCHEMA = json.dumps(
 FORECAST_SCHEMA = json.dumps(
     {
         "type": "record",
-        "name": "WeatherForecastBatch",
+        "name": "WeatherForecast",
         "fields": [
             {"name": "issued_at", "type": "string"},
             {
@@ -106,15 +106,15 @@ def send_record(producer, topic, key, value, serializer):
 
 
 def restaurant_order_subject_name_strategy(_context, _record_name):
-    return "restaurant-order"
+    return "RestaurantOrder"
 
 
 def weather_subject_name_strategy(_context, _record_name):
-    return "weather"
+    return "Weather"
 
 
 def weather_forecast_subject_name_strategy(_context, _record_name):
-    return "weather-forecast"
+    return "WeatherForecast"
 
 
 @contextmanager

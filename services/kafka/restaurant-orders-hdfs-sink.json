@@ -1,9 +1,9 @@
 {
-  "name": "streaming-topics-hdfs-sink",
+  "name": "restaurant-orders-hdfs-sink",
   "config": {
     "connector.class": "io.confluent.connect.hdfs.HdfsSinkConnector",
     "tasks.max": "1",
-    "topics": "restaurant-orders,weather-london,weather-predictions-london",
+    "topics": "restaurant-orders",
     "hdfs.url": "hdfs://namenode:9000",
     "topics.dir": "/topics",
     "format.class": "io.confluent.connect.hdfs.avro.AvroFormat",
@@ -11,9 +11,12 @@
     "rotate.interval.ms": "60000",
     "schema.compatibility": "NONE",
     "consumer.auto.offset.reset": "earliest",
+    "partitioner.class": "io.confluent.connect.storage.partitioner.FieldPartitioner",
+    "partition.field.name": "source",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "io.confluent.connect.avro.AvroConverter",
     "value.converter.schema.registry.url": "http://kafka-schema-registry:8081",
+    "value.converter.value.subject.name.strategy": "io.confluent.kafka.serializers.subject.RecordNameStrategy",
     "confluent.topic.bootstrap.servers": "kafka:9092",
     "confluent.topic.replication.factor": "1"
   }
