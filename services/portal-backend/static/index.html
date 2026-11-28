@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order dashboard | Restaurant portal</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+  <script type="module" src="/static/dashboard.js"></script>
+</head>
+<body>
+  <header><div class="wrap brand"><span class="mark" aria-hidden="true">&#9776;</span>Restaurant portal</div></header>
+  <main class="wrap" id="dashboard">
+    <h1>Order dashboard</h1>
+    <live-overview :live="live" :failed="failed" :checked="checked"></live-overview>
+    <weekly-outlook :live="live"></weekly-outlook>
+    <daily-history></daily-history>
+  </main>
+</body>
+</html>

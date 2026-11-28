@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: portal-backend
+  template:
+    metadata:
+      labels:
+        app: portal-backend
+    spec:
+      containers:
+        - name: portal-backend
+          image: docker.io/magnusthomsen/portal-backend:f139e2b5de13
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: WEATHER_FORECAST_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: spark-integration
+                  key: WEATHER_FORECAST_TOPIC
+                  optional: true
+            - name: PREDICTIONS_SCHEMA_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: spark-integration
+                  key: PREDICTIONS_SCHEMA_ID
+                  optional: true
+            - name: PREDICTIONS_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: spark-integration
+                  key: PREDICTIONS_TOPIC
+                  optional: true
+            - name: PGHOST
+              value: postgresql
+            - name: PGDATABASE
+              value: employees
+            - name: PGUSER
+              value: root
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql
+                  key: password
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
+          volumeMounts:
+            - name: schemas
+              mountPath: /opt/schemas
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: schemas
+          configMap:
+            name: spark-schemas
+            optional: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal-backend
+spec:
+  selector:
+    app: portal-backend
+  ports:
+    - port: 8080
+      targetPort: 8080
