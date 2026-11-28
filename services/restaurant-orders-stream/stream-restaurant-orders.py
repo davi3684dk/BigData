@@ -336,12 +336,8 @@ def main():
                 for forecast_date, forecast_row in weather_records[
                     weather_index:forecast_end
                 ]:
-                    forecast_timestamp = datetime.combine(
-                        forecast_date.date(),
-                        datetime.min.time(),
-                    ).strftime(DATE_FORMAT)
                     forecast_weather = dict(forecast_row)
-                    forecast_weather["date"] = forecast_timestamp
+                    forecast_weather["date"] = forecast_date.date().isoformat()
                     forecasts.append(normalize_weather_record(forecast_weather))
 
                 forecast_issued_at = event_time.strftime(DATE_FORMAT)

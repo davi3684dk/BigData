@@ -56,8 +56,8 @@ The script streams daily observations to `weather-london` and publishes one
 message containing seven weather records in a `forecasts` list to
 `weather-predictions-london` at midnight, including the issue date and the
 following six days. Actual observations go to `weather-london` at `23:59` on
-their date. Timestamps use the same `DD/MM/YYYY HH:MM` format as order
-timestamps. The final six dates have no forecast batch because the CSV has no
+their date. Forecast target dates use `YYYY-MM-DD` for Spark. Issue and
+observation timestamps use `DD/MM/YYYY HH:MM`. The final six dates have no forecast batch because the CSV has no
 complete seven-day horizon for them.
 
 All three topics use Confluent-framed Avro values registered in Schema

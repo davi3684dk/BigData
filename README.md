@@ -6,6 +6,7 @@
 3. Set up Kafka [README](./services/kafka/README.md)
 4. Set up Spark [README](./services/spark/README.md)
 5. Set up PostgreSQL and Sqoop [README](./services/sqoop/README.md)
+6. Run the Flask portal backend [README](./services/portal-backend/README.md)
 
 
 ## Data
